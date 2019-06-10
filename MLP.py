@@ -165,8 +165,11 @@ class MLP:
             sum_errors = 0
             for i in range(1,train.X.shape[0]):
                 f_net_o, f_net_h = self.forward(train.X[i,:], hidden_weights, output_weights)      
-                hidden_weights,output_weights,error,momentum_h,momentum_o = self.backward(train,i,hidden_weights,output_weights,f_net_o,f_net_h,learning_rate,hidden_units,momentum_h,momentum_o,n_classes)
+                hidden_weights,output_weights,error,momentum_h,momentum_o = self.backward(train, i, hidden_weights, output_weights,
+                                                                                          f_net_o, f_net_h, learning_rate, hidden_units, 
+                                                                                          momentum_h, momentum_o, n_classes)
                 sum_errors += error
+                
             errors_list.append(sum_errors)
             delta = errors_list[-1] - errors_list[-2]
             if verbose:
@@ -180,3 +183,4 @@ class MLP:
         self.output_weights = output_weights
         self.train = train
         self.test = test
+

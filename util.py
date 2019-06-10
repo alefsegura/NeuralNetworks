@@ -20,4 +20,4 @@ def sample(dataset):
     sample = {'0':[],'1':[],'2':[],'3':[],'4':[],'5':[],'6':[],'7':[],'8':[],'9':[]}
     for i in range(len(dataset.Y)):    
         sample[str(np.argmax(dataset.Y[i]))].append(dataset.X[i])
-    return sample
+    return sample 
