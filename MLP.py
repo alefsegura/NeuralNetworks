@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 import pandas as pd
 import random
@@ -31,26 +30,7 @@ class MLP:
     def sigmoid(self, x):
         
         return 1/(1+np.exp(-x))
-
-    def predict(self, X):
-        train = self.train
-        test = self.test
-        hidden_weights = self.hidden_weights
-        output_weights = self.output_weights
-        y_hat, _ = self.forward(X, hidden_weights, output_weights)
-        return np.argmax(y_hat)
-    
-    def score(self):
-        train = self.train
-        test = self.test
-        counter = 0
-        for i in range(test.X.shape[0]):
-            y_hat = self.predict(test.X[i,:])
-            y = np.argmax(test.Y[i,:])
-            if y == y_hat:
-                counter += 1
-        return counter/test.X.shape[0]
-        
+       
     def forward(self, x, hidden_weights, output_weights):
         f_net_h = []
         # Apllying the weights on the hidden units
@@ -155,12 +135,14 @@ class MLP:
             for j in range(hidden_units[hidden_layers-1]+1):
                 output_weights[i][j] = random.uniform(-1, 1)
 
-        # Epochs
+        # Início das épocas de aprendizagem
+        delta = delta_error + 1
+        errors_list = [1,0]
         if verbose:
             print('Epoch | Erro')
+
+        # Enquanto o delta não dinuir menos que o hiperparâmetro delta_error, haverá uma nova época
         epoch = 0
-        errors_list = [1,0]
-        delta = 10
         while(abs(delta) > delta_error):
             sum_errors = 0
             for i in range(1,train.X.shape[0]):
@@ -184,3 +166,22 @@ class MLP:
         self.train = train
         self.test = test
 
+    def score(self):
+        train = self.train
+        test = self.test
+        counter = 0
+        for i in range(test.X.shape[0]):
+            y_hat = self.predict(test.X[i,:])
+            y = np.argmax(test.Y[i,:])
+            if y == y_hat:
+                counter += 1
+        return counter/test.X.shape[0]
+
+    def predict(self, X):
+        train = self.train
+        test = self.test
+        hidden_weights = self.hidden_weights
+        output_weights = self.output_weights
+        y_hat, _ = self.forward(X, hidden_weights, output_weights)
+        return np.argmax(y_hat)
+    

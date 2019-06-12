@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 import pandas as pd
 import random
@@ -6,12 +5,12 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from collections import namedtuple
 
-
 class RBFNet:
 
-    def __init__(self, eta, sigma):
+    def __init__(self, eta, sigma, hidden_units):
         self.eta = eta
         self.sigma = sigma
+        self.hidden_units = hidden_units
         
     def train_test_split(self, dataset, train_size):
         
@@ -30,7 +29,7 @@ class RBFNet:
         test = dataset(X=x_test, Y=y_test)
         
         return train, test
-
+ 
     def distances(self, x, n_clusters, clusters, sigma):
         distances = np.zeros(n_clusters)
         for i in range(n_clusters):
@@ -39,51 +38,84 @@ class RBFNet:
             distances[i] = np.sqrt(np.sum(((x - clusters[i])**2)))
         
         # Aplicando a radial basis function
-        return np.exp(-(((distances**2))/(2*(sigma**2))))
+        return np.exp(-(((distances**2))/(2*(sigma**2)))) 
 
     def forward(self, x, output_weights):
-        # Função de ativação = função identidade. Concatena com 1 p/ adição do theta
-        x_aux = np.concatenate((x, np.ones(1)))
-        return np.matmul(x_aux, output_weights.T) 
+        x_aux = np.concatenate((x, np.ones(1)))       
+        return np.matmul(x_aux, output_weights) 
 
-    def backward(self, dataset, eta, n_classes, output_weights, entry, f_net_o, distance):
-        
+    def backward(self, y, eta, n_classes, output_weights, f_net_o, distance, n_clusters):
         # Calcula o erro
-        y = dataset.Y[entry]
-        error = y - f_net_o
-        
+        error = y - f_net_o        
+
         # Atualiza os pesos da camada de saída
-        output_weights += eta*np.matmul(error.reshape(n_classes,1),np.append(distance,1).reshape(1,n_classes+1))
+        output_weights += eta*(np.matmul(error.reshape(n_classes,1), np.append(distance,1).reshape(1,n_clusters+1)).T)
         
-        return output_weights, error    
-
-    def predict(self, entry):
-
-        # Recupera os parâmetros aprendidos
-        output_weights = self.output_weights
-        n_clusters = self.n_clusters
-        clusters = self.clusters
+        return output_weights, sum(error*error)
+ 
+    def fit(self, dataset, n_classes, clusters, train_size, delta_error, verbose=False):
+        eta = self.eta 
         sigma = self.sigma
+        n_clusters = self.hidden_units
+            
+        train, test = self.train_test_split(dataset, train_size)
 
-        # Calcula o valor previsto para a entrada
-        distances = self.distances(entry, n_clusters, clusters, sigma)
-        y_hat = self.forward(distances, output_weights)
-        return np.argmax(y_hat)
+        # Inicialização dos pesos da camada de saída com distribuição uniforme de -1 a 1
+        output_weights = np.zeros((n_clusters+1,n_classes))
+        for i in range(n_clusters+1):
+            for j in range(n_classes):
+                output_weights[i][j] = random.uniform(-1, 1)
         
-    def score(self):
+        # Início das épocas de aprendizagem
+        delta = delta_error + 1
+        errors_list = [1,0]
+        if verbose:
+            print('Epoch | Erro')
+            
+        # Enquanto o delta não dinuir menos que o hiperparâmetro delta_error, haverá uma nova época
+        epoch = 0
+        while(abs(delta) > delta_error):
+            sum_errors = 0
+            
+            # Para cada entrada de treino
+            for entry in range(train.X.shape[0]):
 
+                # Calcula a distancia da entrada para cada cluster
+                distances = self.distances(train.X[entry], n_clusters, clusters, sigma)
+                
+                # Calcula a saida esperada com base nos pesos atuais
+                f_net_o = self.forward(distances, output_weights)
+                
+                # Atualiza os pesos e computa o erro
+                output_weights, error = self.backward(train.Y[entry], eta, n_classes, output_weights, f_net_o,
+                                                      distances, n_clusters)
+                sum_errors += error
+            
+            if verbose:
+                print(epoch, sum_errors)
+                
+            errors_list.append(sum_errors)
+            delta = errors_list[-1] - errors_list[-2]
+            epoch += 1
+            
+        if not verbose:
+            print('Last epoch: {} | Error: {}'.format(epoch, error))
+
+        # Salva os parâmetros aprendidos no objeto
+        self.output_weights = output_weights
+        self.clusters = clusters
+        self.n_clusters = n_clusters
+        self.dataset = dataset
+        
+        return errors_list[2:]
+   
+    def score(self):
         # Recupera os parâmetros aprendidos
         dataset = self.dataset
-        output_weights = self.output_weights
-        n_clusters = self.n_clusters
-        clusters = self.clusters
-        sigma = self.sigma
-
-        counter = 0
 
         # Para cada entrada de teste
+        counter = 0
         for entry in range(dataset.X.shape[0]):
-
             y_hat = self.predict(dataset.X[entry])
             y = np.argmax(dataset.Y[entry])
 
@@ -93,55 +125,16 @@ class RBFNet:
 
         return (counter/dataset.X.shape[0])
 
-    def fit(self, dataset, n_classes, clusters, train_size, delta_error, verbose=False):   
-        eta = self.eta 
+    def predict(self, entry):
+        # Recupera os parâmetros aprendidos
+        output_weights = self.output_weights
+        n_clusters = self.n_clusters
+        clusters = self.clusters
         sigma = self.sigma
-        train, test = self.train_test_split(dataset, train_size)
-        n_clusters = len(clusters)
 
-        # Inicialização dos pesos da camada de saída com distribuição uniforme de -1 a 1
-        output_weights = np.zeros((n_clusters,n_classes+1))
-        for i in range(n_clusters):
-            for j in range(n_classes+1):
-                output_weights[i][j] = random.uniform(-1, 1)
-        
-        # Início das épocas de aprendizagem
-        if verbose:
-            print('Epoch | Erro')
+        # Calcula o valor previsto para a entrada
+        distances = self.distances(entry, n_clusters, clusters, sigma)
+        y_hat = self.forward(distances, output_weights)
 
-        epoch = 0
-        delta = delta_error+1
-        old_error = 0
-        
-        # Enquanto o delta não dinuir menos que o hiperparâmetro delta_error, haverá uma nova época
-        while(delta > delta_error):
-            error = 0
+        return np.argmax(y_hat)
 
-            # Para cada entrada de treino
-            for entry in range(train.X.shape[0]):
-
-                # Calcula a distancia da entrada para cada cluster
-                distances = self.distances(train.X[entry], n_clusters, clusters, sigma)
-
-                # Calcula a saida esperada com base nos pesos atuais
-                f_net_o = self.forward(distances, output_weights)
-
-                # Atualiza os pesos e computa o erro
-                old_error = error
-                output_weights, error = self.backward(train, eta, n_classes, output_weights, entry, f_net_o, distances)
-                error = sum(error*error)
-                
-            if verbose:
-                print(epoch, error)
-            epoch += 1
-            
-            delta = abs(old_error-error)
-        
-        if not verbose:
-            print('Last epoch: {} | Error: {}'.format(epoch, error))
-
-        # Salva os parâmetros aprendidos no objeto
-        self.output_weights = output_weights
-        self.clusters = clusters
-        self.n_clusters = n_clusters
-        self.dataset = dataset
