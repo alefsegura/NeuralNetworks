@@ -98,7 +98,7 @@ class MLP:
         # Returning the updated weights, the new error and the momentum parameters
         return hidden_weights, output_weights, error, momentum_h, momentum_o
 
-    def fit(self, dataset, n_classes, train_size, delta_error, verbose=False):
+    def fit(self, dataset, n_classes, train_size, delta_error, verbose=False, return_train_score=False):
         hidden_units = self.hidden_units
         learning_rate = self.learning_rate
         
@@ -165,6 +165,9 @@ class MLP:
         self.output_weights = output_weights
         self.train = train
         self.test = test
+
+        if return_train_score:
+            return errors_list[2:]
 
     def score(self):
         train = self.train

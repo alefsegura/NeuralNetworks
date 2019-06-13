@@ -8,6 +8,7 @@ from collections import namedtuple
 class RBFNet:
 
     def __init__(self, eta, sigma, hidden_units):
+        # Instanciando principais parâmetros para o modelo
         self.eta = eta
         self.sigma = sigma
         self.hidden_units = hidden_units
@@ -106,9 +107,7 @@ class RBFNet:
         self.clusters = clusters
         self.n_clusters = n_clusters
         self.dataset = dataset
-        
-        return errors_list[2:]
-   
+
     def score(self):
         # Recupera os parâmetros aprendidos
         dataset = self.dataset
